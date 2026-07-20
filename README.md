@@ -109,13 +109,21 @@ Everything is a small, single-responsibility module — no framework, no build s
 
 ## Quick start
 
+You need two things: **Node.js 18.15+** and **ffmpeg**. "Zero dependencies" means
+Vigil pulls no npm packages — you still grab Vigil's own code once.
+
 ```bash
-# 1. Install ffmpeg
+# 1. Get Vigil
+git clone https://github.com/gaganggoyal/vigil.git
+cd vigil
+#   (no git? download the ZIP from the GitHub page → "Code" → "Download ZIP")
+
+# 2. Install ffmpeg — the only external tool Vigil needs
 #    macOS:   brew install ffmpeg
 #    Ubuntu:  sudo apt install ffmpeg
 #    Windows: winget install Gyan.FFmpeg
 
-# 2. Run it (no npm install needed)
+# 3. Run it — no npm install, no build step
 node scripts/setup.js     # one-time: checks ffmpeg, creates config.json
 npm start                 # → http://localhost:8080
 ```
