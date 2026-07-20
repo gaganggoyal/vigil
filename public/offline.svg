@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" width="320" height="180">
+  <rect width="320" height="180" fill="#05080c"/>
+  <g fill="none" stroke="#2a3444" stroke-width="2">
+    <rect x="120" y="66" width="60" height="40" rx="6"/>
+    <path d="M180 78l22-12v48l-22-12"/>
+  </g>
+  <line x1="96" y1="52" x2="224" y2="128" stroke="#ff5c72" stroke-width="3" stroke-linecap="round"/>
+  <text x="160" y="150" fill="#8494a8" font-family="sans-serif" font-size="13" text-anchor="middle">camera unreachable</text>
+</svg>

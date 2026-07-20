@@ -1,0 +1,9 @@
+node_modules/
+config.json
+recordings/
+live/
+*.log
+.DS_Store
+
+# Private build notes — not for the public repo
+DETAILS.md

@@ -1,0 +1,21 @@
+{
+  "port": 8080,
+  "host": "0.0.0.0",
+  "storageDir": "./recordings",
+  "segmentSeconds": 600,
+  "retention": {
+    "minFreeGB": 5,
+    "maxUsagePercent": 90,
+    "maxDays": 0
+  },
+  "recordAudio": true,
+  "cameras": [
+    {
+      "id": "front-door",
+      "name": "Front Door",
+      "url": "rtsp://admin:password@192.168.1.50:554/stream1",
+      "subUrl": "rtsp://admin:password@192.168.1.50:554/stream2",
+      "enabled": true
+    }
+  ]
+}

@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vigil · Recorder</title>
+  <link rel="icon" href="/public/favicon.svg" />
+  <link rel="stylesheet" href="/public/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="/public/favicon.svg" width="26" height="26" alt="" />
+      <span>Vi<b>gil</b></span>
+      <em id="statusPill" class="pill pill-live">● recording</em>
+    </div>
+    <div class="storagebar" id="storageBar">
+      <div class="storagebar-track"><div class="storagebar-fill" id="diskFill"></div></div>
+      <div class="storagebar-text" id="diskText">—</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost" id="btnDiscover" title="Scan your network for cameras">⌖ Scan</button>
+      <button class="btn btn-primary" id="btnAdd">＋ Add camera</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="live">Live</button>
+    <button class="tab" data-tab="recordings">Recordings</button>
+    <button class="tab" data-tab="storage">Storage</button>
+    <button class="tab" data-tab="settings">Settings</button>
+  </nav>
+
+  <main>
+    <!-- LIVE -->
+    <section class="view active" id="view-live">
+      <div class="grid" id="cameraGrid"></div>
+      <div class="empty" id="emptyState" hidden>
+        <div class="empty-art">🎥</div>
+        <h2>No cameras yet</h2>
+        <p>Add your first WiFi / RTSP camera to start recording. Not sure of the address? Hit <b>Scan</b> to find cameras on your network.</p>
+        <div class="empty-actions">
+          <button class="btn btn-primary" onclick="document.getElementById('btnAdd').click()">＋ Add a camera</button>
+          <button class="btn btn-ghost" onclick="document.getElementById('btnDiscover').click()">⌖ Scan network</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- RECORDINGS -->
+    <section class="view" id="view-recordings">
+      <div class="rec-layout">
+        <aside class="rec-side">
+          <label class="field-label">Camera</label>
+          <select id="recCam" class="input"></select>
+          <label class="field-label">Day</label>
+          <select id="recDay" class="input"></select>
+          <div class="rec-list" id="recList"></div>
+        </aside>
+        <div class="rec-main">
+          <video id="player" controls playsinline preload="metadata"></video>
+          <div class="rec-caption" id="recCaption">Select a clip to play</div>
+          <a class="btn btn-ghost" id="btnDownload" hidden download>⭳ Download this clip</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- STORAGE -->
+    <section class="view" id="view-storage">
+      <div class="cards" id="storageCards"></div>
+      <h3 class="section-h">Per-camera usage</h3>
+      <div class="usage-table" id="usageTable"></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" id="view-settings">
+      <div class="settings-grid">
+        <div class="panel">
+          <h3>Storage</h3>
+          <label class="field-label">Where to save recordings</label>
+          <input class="input" id="setStorage" placeholder="/Volumes/MyDrive/recordings" />
+          <p class="hint">Point this at an external USB drive to keep footage off your main disk. Requires a restart of recording to apply.</p>
+          <label class="field-label">Clip length (seconds)</label>
+          <input class="input" id="setSegment" type="number" min="30" step="30" />
+          <label class="checkline"><input type="checkbox" id="setAudio" /> Record audio</label>
+        </div>
+        <div class="panel">
+          <h3>Auto-cleanup (never run out of space)</h3>
+          <p class="hint">Vigil records forever and deletes the <b>oldest</b> footage when the disk fills up.</p>
+          <label class="field-label">Always keep this much free (GB)</label>
+          <input class="input" id="setMinFree" type="number" min="0" step="1" />
+          <label class="field-label">Never exceed this disk usage (%)</label>
+          <input class="input" id="setMaxPct" type="number" min="10" max="99" step="1" />
+          <label class="field-label">Also delete footage older than (days · 0 = off)</label>
+          <input class="input" id="setMaxDays" type="number" min="0" step="1" />
+        </div>
+      </div>
+      <div class="settings-save">
+        <button class="btn btn-primary" id="btnSaveSettings">Save settings</button>
+        <span class="saved-note" id="savedNote"></span>
+      </div>
+    </section>
+  </main>
+
+  <!-- Add / edit camera modal -->
+  <div class="modal-backdrop" id="modal" hidden>
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="modalTitle">Add camera</h3>
+        <button class="icon-btn" id="modalClose">✕</button>
+      </div>
+      <div class="modal-body">
+        <label class="field-label">Name</label>
+        <input class="input" id="camName" placeholder="Front Door" />
+
+        <label class="field-label">RTSP address (main / recording stream)</label>
+        <input class="input" id="camUrl" placeholder="rtsp://admin:password@192.168.1.50:554/stream1" />
+
+        <label class="field-label">Sub-stream for live preview <span class="opt">(optional, low-res)</span></label>
+        <input class="input" id="camSub" placeholder="rtsp://admin:password@192.168.1.50:554/stream2" />
+
+        <div class="test-row">
+          <button class="btn btn-ghost" id="btnTest">Test connection</button>
+          <span class="test-result" id="testResult"></span>
+        </div>
+
+        <details class="help">
+          <summary>Where do I find my camera's RTSP address?</summary>
+          <p>Most WiFi cameras publish an RTSP link. Common formats:</p>
+          <ul>
+            <li><code>rtsp://user:pass@IP:554/stream1</code> — TP-Link / Tapo, generic</li>
+            <li><code>rtsp://user:pass@IP:554/Streaming/Channels/101</code> — Hikvision</li>
+            <li><code>rtsp://user:pass@IP:554/cam/realmonitor?channel=1&subtype=0</code> — Dahua / Amcrest</li>
+            <li><code>rtsp://user:pass@IP:554/h264Preview_01_main</code> — Reolink</li>
+          </ul>
+          <p>Use <b>Scan</b> on the main screen to auto-find camera IPs on your network.</p>
+        </details>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-danger-ghost" id="btnDelete" hidden>Delete</button>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost" id="btnCancel">Cancel</button>
+        <button class="btn btn-primary" id="btnSaveCam">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Discovery modal -->
+  <div class="modal-backdrop" id="discoverModal" hidden>
+    <div class="modal">
+      <div class="modal-head">
+        <h3>Cameras found on your network</h3>
+        <button class="icon-btn" id="discoverClose">✕</button>
+      </div>
+      <div class="modal-body" id="discoverBody">
+        <div class="scanning">Scanning your network…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live viewer overlay -->
+  <div class="viewer-backdrop" id="viewer" hidden>
+    <button class="icon-btn viewer-close" id="viewerClose">✕</button>
+    <figure class="viewer-fig">
+      <img id="viewerImg" alt="live" />
+      <figcaption id="viewerCaption"></figcaption>
+    </figure>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="/public/app.js"></script>
+</body>
+</html>

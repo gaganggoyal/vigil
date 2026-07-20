@@ -1,0 +1,28 @@
+{
+  "name": "vigil",
+  "version": "1.0.0",
+  "description": "Turn any old computer into a 24/7 security camera recorder. Records your WiFi/RTSP cameras to local or external disk. Zero dependencies — just Node.js + ffmpeg.",
+  "type": "commonjs",
+  "bin": {
+    "vigil": "server.js"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "setup": "node scripts/setup.js"
+  },
+  "engines": {
+    "node": ">=18.15.0"
+  },
+  "keywords": [
+    "nvr",
+    "cctv",
+    "rtsp",
+    "onvif",
+    "security-camera",
+    "recorder",
+    "ffmpeg",
+    "surveillance"
+  ],
+  "license": "MIT",
+  "dependencies": {}
+}
