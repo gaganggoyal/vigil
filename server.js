@@ -248,6 +248,10 @@ async function handle(req, res) {
     if (method === 'GET' && (u.pathname === '/' || u.pathname === '/index.html')) {
       return serveFile(req, res, path.join(PUBLIC_DIR, 'index.html'));
     }
+    // Full-screen camera wall for TVs — short URL so it's easy to type on a remote.
+    if (method === 'GET' && u.pathname === '/tv') {
+      return serveFile(req, res, path.join(PUBLIC_DIR, 'tv.html'));
+    }
     if (method === 'GET' && parts[0] === 'public' && isSafeName(parts[1] || '')) {
       return serveFile(req, res, path.join(PUBLIC_DIR, parts[1]));
     }
@@ -259,6 +263,12 @@ async function handle(req, res) {
     if (parts[0] === 'api') {
       if (method === 'GET' && parts[1] === 'state') return sendJson(res, 200, await apiState());
       if (method === 'GET' && parts[1] === 'health') return sendJson(res, 200, { ok: true });
+
+      // Cameras + recorder health only — no disk walk, cheap enough for the TV
+      // wall to poll every few seconds.
+      if (method === 'GET' && parts[1] === 'status') {
+        return sendJson(res, 200, { ok: true, cameras: cfg.cameras.map(publicCam), status: recorder.allStatus() });
+      }
 
       if (method === 'GET' && parts[1] === 'discover') {
         const devices = await onvif.discover(4000);

@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vigil · TV</title>
+  <link rel="icon" href="/public/favicon.svg" />
+  <style>
+    /* TV wall — everything sized in vmin so it reads from across the room. */
+    :root {
+      --accent: #35d0a5;
+      --danger: #ff5c72;
+      --warn: #ffb638;
+      --muted: #8494a8;
+      --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+    body {
+      color: #e7edf5;
+      font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .wall { display: grid; width: 100vw; height: 100vh; gap: 2px; background: #000; }
+    .tile { position: relative; overflow: hidden; background: #05080c; }
+    .tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    body.fit-contain .tile img { object-fit: contain; }
+    .wall.solo .tile { display: none; }
+    .wall.solo .tile.solo-active { display: block; grid-area: 1 / 1 / -1 / -1; }
+    .wall.solo .tile.solo-active img { object-fit: contain; }
+    .tile.cursor::after {
+      content: ""; position: absolute; inset: 0; z-index: 3;
+      border: 0.45vmin solid var(--accent); pointer-events: none;
+    }
+
+    .tag {
+      position: absolute; top: 1.4vmin; left: 1.4vmin; z-index: 2;
+      display: flex; align-items: center; gap: 0.9vmin;
+      background: rgba(0, 0, 0, 0.55); border-radius: 999px;
+      padding: 0.6vmin 1.4vmin;
+      font-size: clamp(12px, 1.8vmin, 24px); font-weight: 600; letter-spacing: 0.04em;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+    }
+    .dot { width: 1vmin; height: 1vmin; min-width: 7px; min-height: 7px; border-radius: 50%; }
+    .dot.rec { background: var(--danger); animation: pulse 1.6s infinite; }
+    .dot.recon { background: var(--warn); }
+    .dot.off { background: var(--muted); }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(255, 92, 114, 0.5); }
+      70% { box-shadow: 0 0 0 1vmin rgba(255, 92, 114, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(255, 92, 114, 0); }
+    }
+
+    .overlay {
+      position: absolute; inset: 0; z-index: 1;
+      display: grid; place-items: center;
+      background: #05080c;
+      color: var(--muted); font-family: var(--mono);
+      font-size: clamp(13px, 2.2vmin, 30px); letter-spacing: 0.18em;
+    }
+
+    .clock {
+      position: fixed; right: 2vmin; bottom: 1.6vmin; z-index: 10;
+      text-align: right; font-family: var(--mono);
+      background: rgba(0, 0, 0, 0.45); border-radius: 1vmin; padding: 0.8vmin 1.4vmin;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+    }
+    .clock .t { font-size: clamp(18px, 3.6vmin, 52px); font-weight: 700; letter-spacing: 0.06em; }
+    .clock .d { font-size: clamp(11px, 1.6vmin, 22px); color: var(--muted); letter-spacing: 0.08em; }
+
+    .banner {
+      position: fixed; top: 2vmin; left: 50%; transform: translateX(-50%); z-index: 20;
+      background: rgba(0, 0, 0, 0.75); border: 1px solid var(--warn); color: var(--warn);
+      border-radius: 999px; padding: 1vmin 2.2vmin;
+      font-size: clamp(12px, 1.8vmin, 24px); font-weight: 600;
+    }
+
+    .hint {
+      position: fixed; bottom: 1.6vmin; left: 50%; transform: translateX(-50%); z-index: 10;
+      background: rgba(0, 0, 0, 0.55); border-radius: 999px; padding: 0.7vmin 1.8vmin;
+      color: var(--muted); font-size: clamp(11px, 1.5vmin, 20px); letter-spacing: 0.03em;
+      opacity: 0; transition: opacity 0.4s ease; pointer-events: none; white-space: nowrap;
+    }
+    .hint.show { opacity: 1; }
+    .hint b { color: #e7edf5; font-weight: 600; }
+
+    .empty {
+      position: fixed; inset: 0; display: grid; place-items: center; text-align: center;
+      color: var(--muted); font-size: clamp(14px, 2.4vmin, 30px); padding: 5vmin;
+    }
+    [hidden] { display: none !important; }
+    .empty a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="wall" id="wall"></div>
+  <div class="empty" id="empty" hidden>
+    No cameras yet — add one from the <a href="/">Vigil dashboard</a>,<br />then come back here.
+  </div>
+  <div class="banner" id="banner" hidden>⚠ Vigil unreachable — retrying…</div>
+  <div class="clock"><div class="t" id="clockTime">--:--:--</div><div class="d" id="clockDate"></div></div>
+  <div class="hint" id="hint">
+    <b>◀ ▶ ▲ ▼</b> select &nbsp;·&nbsp; <b>OK</b> full screen &nbsp;·&nbsp; <b>1–9</b> jump
+    &nbsp;·&nbsp; <b>C</b> auto-cycle &nbsp;·&nbsp; <b>F</b> fill/fit
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+      var qs = new URLSearchParams(location.search);
+      var wall = document.getElementById('wall');
+      var banner = document.getElementById('banner');
+      var emptyEl = document.getElementById('empty');
+      var hintEl = document.getElementById('hint');
+
+      var cams = []; // enabled cameras, in dashboard order
+      var lastState = {}; // camId -> last recorder state we saw
+      var backoff = {}; // camId -> ms until next stream retry
+      var soloId = null;
+      var cursor = 0;
+      var cursorShown = false;
+      var cols = 1;
+      var serverDown = false;
+      var cycleSec = Math.max(0, parseInt(qs.get('cycle'), 10) || 0);
+      var cycleTimer = null;
+
+      if (localStorage.getItem('vigil-tv-fit') === 'contain') document.body.classList.add('fit-contain');
+
+      // ---- data: poll the cheap status endpoint ------------------------------
+      function poll() {
+        fetch('/api/status', { cache: 'no-store' })
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            if (!d.ok) throw new Error('bad response');
+            var enabled = (d.cameras || []).filter(function (c) { return c.enabled && c.hasUrl; });
+            var changed =
+              enabled.length !== cams.length ||
+              enabled.some(function (c, i) { return c.id !== cams[i].id || c.name !== cams[i].name; });
+            var cameBack = serverDown;
+            serverDown = false;
+            banner.hidden = true;
+            if (changed) { cams = enabled; build(); }
+            applyStatus(d.status || {});
+            if (cameBack) reloadAll();
+          })
+          .catch(function () {
+            serverDown = true;
+            banner.hidden = false;
+          });
+      }
+
+      // ---- layout ------------------------------------------------------------
+      function build() {
+        wall.innerHTML = '';
+        emptyEl.hidden = cams.length > 0;
+        if (!cams.length) { soloId = null; wall.classList.remove('solo'); return; }
+
+        var n = cams.length;
+        cols = Math.ceil(Math.sqrt(n));
+        var rows = Math.ceil(n / cols);
+        wall.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
+        wall.style.gridTemplateRows = 'repeat(' + rows + ', 1fr)';
+
+        cams.forEach(function (cam) {
+          var tile = document.createElement('div');
+          tile.className = 'tile';
+          tile.dataset.id = cam.id;
+          tile.innerHTML =
+            '<div class="overlay">CONNECTING…</div>' +
+            '<img alt="" />' +
+            '<div class="tag"><i class="dot recon"></i><span></span></div>';
+          tile.querySelector('.tag span').textContent = cam.name;
+          tile.addEventListener('click', function () { toggleSolo(cam.id); });
+          wall.appendChild(tile);
+          startStream(tile, cam.id);
+        });
+
+        if (soloId && !cams.some(function (c) { return c.id === soloId; })) soloId = null;
+        if (cursor >= cams.length) cursor = cams.length - 1;
+        renderSolo();
+        renderCursor();
+      }
+
+      // ---- live streams (shared MJPEG in a plain <img>) ----------------------
+      function startStream(tile, id) {
+        var img = tile.querySelector('img');
+        img.onerror = function () {
+          backoff[id] = Math.min((backoff[id] || 2000) * 2, 30000);
+          setTimeout(function () { startStream(tile, id); }, backoff[id]);
+        };
+        img.src = '/api/cameras/' + encodeURIComponent(id) + '/live?t=' + Date.now();
+      }
+
+      function reloadAll() {
+        cams.forEach(function (cam) {
+          var tile = tileOf(cam.id);
+          if (tile) { backoff[cam.id] = 0; startStream(tile, cam.id); }
+        });
+      }
+
+      function tileOf(id) {
+        for (var i = 0; i < wall.children.length; i++) {
+          if (wall.children[i].dataset.id === id) return wall.children[i];
+        }
+        return null;
+      }
+
+      // The recorder (always running server-side) is our source of truth for
+      // camera health — badges mirror it, and a camera coming back to
+      // `recording` triggers a stream reload so no tile stays frozen.
+      function applyStatus(status) {
+        cams.forEach(function (cam) {
+          var tile = tileOf(cam.id);
+          if (!tile) return;
+          var st = (status[cam.id] || {}).state || 'connecting';
+          var dot = tile.querySelector('.dot');
+          var overlay = tile.querySelector('.overlay');
+          if (st === 'recording') {
+            dot.className = 'dot rec';
+            overlay.style.display = 'none';
+          } else {
+            dot.className = 'dot ' + (st === 'stopped' ? 'off' : 'recon');
+            overlay.style.display = '';
+            overlay.textContent =
+              st === 'connecting' ? 'CONNECTING…' : st === 'stopped' ? 'OFF' : 'NO SIGNAL';
+          }
+          if (st === 'recording' && lastState[cam.id] && lastState[cam.id] !== 'recording') {
+            backoff[cam.id] = 0;
+            startStream(tile, cam.id);
+          }
+          lastState[cam.id] = st;
+        });
+      }
+
+      // ---- solo (one camera full screen) + auto-cycle ------------------------
+      function renderSolo() {
+        wall.classList.toggle('solo', !!soloId);
+        for (var i = 0; i < wall.children.length; i++) {
+          wall.children[i].classList.toggle('solo-active', wall.children[i].dataset.id === soloId);
+        }
+      }
+
+      function toggleSolo(id) {
+        stopCycle();
+        soloId = soloId === id ? null : id;
+        var idx = cams.findIndex(function (c) { return c.id === id; });
+        if (idx >= 0) cursor = idx;
+        renderSolo();
+        renderCursor();
+      }
+
+      function startCycle(sec) {
+        stopCycle();
+        if (!cams.length) return;
+        cycleTimer = setInterval(function () {
+          if (!cams.length) return;
+          var idx = cams.findIndex(function (c) { return c.id === soloId; });
+          soloId = cams[(idx + 1) % cams.length].id;
+          renderSolo();
+        }, sec * 1000);
+        soloId = soloId || cams[0].id;
+        renderSolo();
+      }
+
+      function stopCycle() {
+        if (cycleTimer) { clearInterval(cycleTimer); cycleTimer = null; }
+      }
+
+      // ---- TV-remote / keyboard controls -------------------------------------
+      function renderCursor() {
+        for (var i = 0; i < wall.children.length; i++) {
+          wall.children[i].classList.toggle('cursor', cursorShown && !soloId && i === cursor);
+        }
+      }
+
+      function moveCursor(delta) {
+        if (!cams.length) return;
+        cursorShown = true;
+        cursor = Math.max(0, Math.min(cams.length - 1, cursor + delta));
+        renderCursor();
+      }
+
+      document.addEventListener('keydown', function (e) {
+        var k = e.key;
+        if (k === 'ArrowLeft') moveCursor(-1);
+        else if (k === 'ArrowRight') moveCursor(1);
+        else if (k === 'ArrowUp') moveCursor(-cols);
+        else if (k === 'ArrowDown') moveCursor(cols);
+        else if (k === 'Enter' || k === ' ') {
+          if (soloId) { stopCycle(); soloId = null; renderSolo(); renderCursor(); }
+          else if (cams[cursor]) toggleSolo(cams[cursor].id);
+        } else if (k === 'Escape' || k === 'Backspace') {
+          stopCycle();
+          if (soloId) { soloId = null; renderSolo(); renderCursor(); }
+        } else if (k >= '1' && k <= '9') {
+          var cam = cams[parseInt(k, 10) - 1];
+          if (cam) { stopCycle(); soloId = cam.id; renderSolo(); }
+        } else if (k === '0' || k === 'g' || k === 'G') {
+          stopCycle(); soloId = null; renderSolo();
+        } else if (k === 'c' || k === 'C') {
+          if (cycleTimer) { stopCycle(); soloId = null; renderSolo(); }
+          else startCycle(cycleSec || 8);
+        } else if (k === 'f' || k === 'F') {
+          var contain = document.body.classList.toggle('fit-contain');
+          localStorage.setItem('vigil-tv-fit', contain ? 'contain' : 'cover');
+        } else {
+          return; // let unhandled keys through (don't block TV browser UI)
+        }
+        e.preventDefault();
+        showHint();
+      });
+
+      // ---- chrome: clock, hint, cursor auto-hide -----------------------------
+      function tickClock() {
+        var d = new Date();
+        var p = function (x) { return String(x).padStart(2, '0'); };
+        document.getElementById('clockTime').textContent =
+          p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+        document.getElementById('clockDate').textContent = d
+          .toLocaleDateString(undefined, { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })
+          .toUpperCase();
+      }
+
+      var hintTimer = null;
+      function showHint(ms) {
+        hintEl.classList.add('show');
+        clearTimeout(hintTimer);
+        hintTimer = setTimeout(function () { hintEl.classList.remove('show'); }, ms || 5000);
+      }
+
+      var mouseTimer = null;
+      document.addEventListener('mousemove', function () {
+        document.body.style.cursor = '';
+        clearTimeout(mouseTimer);
+        mouseTimer = setTimeout(function () { document.body.style.cursor = 'none'; }, 3000);
+      });
+
+      // A TV waking from sleep leaves dead <img> connections behind — reload.
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) { poll(); reloadAll(); }
+      });
+
+      // ---- boot --------------------------------------------------------------
+      tickClock();
+      setInterval(tickClock, 500);
+      poll();
+      setInterval(poll, 5000);
+      showHint(12000);
+      if (cycleSec > 0) setTimeout(function () { startCycle(cycleSec); }, 1500);
+    })();
+  </script>
+</body>
+</html>
